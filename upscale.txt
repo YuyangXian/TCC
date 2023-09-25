@@ -1,0 +1,62 @@
+pro upscale
+
+  compile_opt idl2
+  envi,/restore_base_save_files
+  ENVI_batch_init,NO_STATUS_WINDOW=1
+  e = ENVI(/headless)
+
+  DEM_file='I:\QZ_xian\new_calculate\rugged_surface_area\DEM_area.dat'
+  FINE_file='C:\Users\DELL\Desktop\rugged_foring\TRF_2017_year_90m.tif'
+
+  coarse_resolution=DOUBLE(3000)
+  Fine_resolution=DOUBLE(90)
+
+  geofile=read_tiff(FINE_file,geotiff=geotiff_geo)
+  geotiff_geo.MODELPIXELSCALETAG=[coarse_resolution, coarse_resolution, 0.0000000000000000]
+
+
+  Envi_open_file,FINE_file,r_fid=fid_Fine
+  envi_file_query,fid_Fine,dims=dims_Fine,ns=ns_Fine,nl=nl_Fine
+  Fine_DATA=ENVI_GET_Data(FID=fid_Fine,dims=dims_Fine,pos=0)*1d
+
+  Envi_open_file,DEM_file,r_fid=fid_DEM
+  envi_file_query,fid_DEM,dims=dims_DEM,ns=ns_DEM,nl=nl_DEM
+  DEM_DATA=ENVI_GET_Data(FID=fid_DEM,dims=dims_DEM,pos=0)*1d
+
+  mm=coarse_resolution/Fine_resolution
+  nn=coarse_resolution/Fine_resolution
+
+  m=ceil(ns_Fine*Fine_resolution/coarse_resolution)
+  n=ceil(nl_Fine*Fine_resolution/coarse_resolution)
+
+  pixel_DEM_DATA=DBLARR(m,n)
+  Coarse_DATA=DBLARR(m,n)
+
+  FOR i =0.0,n-1,1 DO BEGIN
+    ix=double(floor(0+nn*i))
+    iy=double(floor(nn-1+nn*i))
+
+    if iy gt nl_Fine-1 then iy=nl_Fine-1
+
+    FOR j = 0.0,m-1,1 DO BEGIN
+
+      jx=double(floor(0+mm*j))
+      jy=double(floor(mm-1+mm*j))
+
+      if jy gt ns_Fine-1 then jy=ns_Fine-1
+
+      Coarse_01=DEM_DATA[jx:jy,ix:iy]*Fine_DATA[jx:jy,ix:iy]/ TOTAL(DEM_DATA[jx:jy,ix:iy])
+      Coarse_DATA[j,i] = TOTAL(Coarse_01)
+
+    ENDFOR
+  ENDFOR
+
+  output_file='C:\Users\DELL\Desktop\rugged_foring\多空间分辨率\TRF_2017_year_'+string(fix(coarse_resolution))+'m.tif'
+  WRITE_TIFF,output_file,Coarse_DATA,/short,/signed,geotiff=geotiff_geo,COMPRESSION=1
+  
+  e.close
+  
+  print,'finish'
+
+
+END
